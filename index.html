@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="脳内フレッシュ" />
+<meta name="theme-color" content="#FF9500" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFB340'/%3E%3Cstop offset='1' stop-color='%23FF8A00'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='34' font-family='Hiragino Sans,sans-serif' font-size='28' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'%3E%E8%84%B3%3C/text%3E%3C/svg%3E" />
+<title>脳内フレッシュ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F2F2F7;
+    --card: #FFFFFF;
+    --ink: #1a1a1a;
+    --secondary: rgba(60,60,67,0.6);
+    --tertiary: rgba(60,60,67,0.3);
+    --sep: rgba(60,60,67,0.18);
+    --blue: #007AFF;
+    --red: #FF3B30;
+    --fav: #FF9F0A;
+    --cold: #32ADE6;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); }
+  body {
+    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+    color: var(--ink); font-size: 16px; -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+  #app {
+    height: var(--app-height, 100%);
+    display: flex; flex-direction: column;
+    padding-top: var(--safe-top);
+    transition: height 0.15s ease-out;
+  }
+
+  /* ---------- Navbar ---------- */
+  .navbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; min-height: 44px; position: relative;
+    background: rgba(242,242,247,0.92);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 0.5px solid var(--sep); z-index: 10;
+  }
+  .navbar .title {
+    font-size: 17px; font-weight: 700;
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none; white-space: nowrap;
+  }
+  .icon-btn {
+    width: 36px; min-width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--blue); background: none; border: 0; cursor: pointer;
+  }
+
+  /* ---------- List area ---------- */
+  #list {
+    flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 8px 0 16px;
+  }
+  .section { margin: 14px 16px 4px; }
+  .section:first-child { margin-top: 6px; }
+  .sec-head {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 6px 8px; font-size: 13px; font-weight: 700;
+    letter-spacing: .02em;
+  }
+  .sec-head .dot { font-size: 14px; line-height: 1; }
+  .sec-head.fav  { color: var(--fav); }
+  .sec-head.none { color: var(--secondary); }
+  .sec-head.cold { color: var(--cold); }
+  .sec-head .count {
+    margin-left: auto; font-size: 12px; font-weight: 600;
+    color: var(--tertiary);
+  }
+  .group {
+    background: var(--card); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .empty {
+    padding: 14px 16px; font-size: 14px; color: var(--tertiary);
+    background: var(--card); border-radius: 14px;
+    border: 1px dashed var(--sep);
+  }
+
+  /* ---------- Row ---------- */
+  .row-wrap { position: relative; overflow: hidden; }
+  .row-wrap:not(:last-child)::after {
+    content: ''; position: absolute; left: 16px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--sep); z-index: 1;
+  }
+  .row-bg {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    font-size: 13px; font-weight: 700; color: #fff; z-index: 0;
+  }
+  .row-bg.up   { justify-content: flex-start; padding-left: 18px; background: var(--fav); }
+  .row-bg.down { justify-content: flex-end;   padding-right: 18px; background: var(--cold); }
+  .row-bg.capped { background: #C7C7CC; }
+  .row {
+    position: relative; z-index: 2; background: var(--card);
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 14px 13px 16px; min-height: 50px;
+    touch-action: pan-y; cursor: pointer; will-change: transform;
+  }
+  .row .txt { flex: 1; font-size: 16px; line-height: 1.35; word-break: break-word; min-width: 0; }
+  .row .txt .sub {
+    display: block; font-size: 12.5px; color: var(--secondary); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .chev { color: var(--tertiary); font-size: 15px; flex-shrink: 0; }
+  .check {
+    width: 26px; height: 26px; min-width: 26px; border-radius: 50%;
+    border: 1.8px solid var(--tertiary); background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+    color: transparent; flex-shrink: 0;
+  }
+  .row.is-done .check { background: var(--green, #34C759); border-color: var(--green, #34C759); color: #fff; }
+  .row.is-done .txt { text-decoration: line-through; color: var(--tertiary); }
+  .row.is-done .txt .sub { text-decoration: none; color: var(--tertiary); }
+  .sec-head.done { color: #34C759; }
+  #syncBtn { position: relative; }
+  #syncDot {
+    position: absolute; top: 4px; right: 4px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--fav);
+    box-shadow: 0 0 0 2px var(--bg); display: none;
+  }
+  .link-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+  .lchip {
+    display: inline-block; font-size: 13px; font-weight: 600; color: var(--blue);
+    background: rgba(0,122,255,0.08); padding: 6px 12px; border-radius: 999px;
+    text-decoration: none; max-width: 100%; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pu-badge {
+    display: flex; align-items: center; gap: 3px; flex-shrink: 0;
+    font-size: 12px; font-weight: 700; color: var(--secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .pu-badge i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .pu-badge i.p { background: var(--fav); }
+  .pu-badge i.u { background: #AF52DE; }
+  .pu-badge .sp { width: 3px; }
+
+  /* ---------- Edit panel ---------- */
+  .row.editing { display: block; padding: 8px 14px 14px; cursor: default; }
+  .edit-top { display: flex; align-items: center; gap: 8px; }
+  .row .edit-input {
+    flex: 1; font-family: inherit; font-size: 16px; color: var(--ink);
+    border: 0; background: #F2F2F7; border-radius: 9px; padding: 9px 11px; outline: none;
+    min-width: 0;
+  }
+  .scale-row { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
+  .detail-head {
+    display: flex; align-items: center; justify-content: space-between; margin-top: 10px;
+  }
+  .detail-head .lbl { font-size: 13px; font-weight: 600; color: var(--secondary); }
+  .detail-head .append-btn {
+    border: 0; background: none; color: var(--blue); font-weight: 700;
+    font-size: 14px; font-family: inherit; padding: 2px 6px; cursor: pointer;
+  }
+  .edit-detail {
+    width: 100%; margin-top: 8px; font-family: inherit; font-size: 14px;
+    color: var(--ink); border: 0; background: #F2F2F7; border-radius: 9px;
+    padding: 9px 11px; outline: none; resize: none; line-height: 1.5;
+    min-height: 66px; display: block;
+  }
+  .edit-detail::placeholder { color: var(--tertiary); }
+  .scale-row .lbl { font-size: 13px; font-weight: 600; color: var(--secondary); width: 64px; flex-shrink: 0; }
+  .scale-row input[type=range] { flex: 1; height: 30px; margin: 0; touch-action: none; }
+  .scale-row.pri input[type=range] { accent-color: var(--fav); }
+  .scale-row.urg input[type=range] { accent-color: #AF52DE; }
+  .scale-row .val {
+    width: 34px; text-align: center; font-weight: 700; font-size: 15px;
+    color: var(--ink); flex-shrink: 0; font-variant-numeric: tabular-nums;
+  }
+  .scale-row .val.unset { color: var(--tertiary); }
+  .edit-actions { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .row .ebtn {
+    border: 0; background: none; font-family: inherit; font-weight: 700;
+    font-size: 15px; padding: 8px 10px; border-radius: 9px; cursor: pointer; flex-shrink: 0;
+  }
+  .row .ebtn.del  { color: var(--red); }
+  .row .ebtn.done { color: var(--blue); }
+
+  /* ---------- Filter bar ---------- */
+  #filterBar {
+    display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding: 10px 16px 2px; flex-shrink: 0; scrollbar-width: none;
+  }
+  #filterBar::-webkit-scrollbar { display: none; }
+  .fchip {
+    flex-shrink: 0; border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 13px; border-radius: 999px; background: var(--card);
+    color: var(--secondary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;
+  }
+  .fchip.on { background: var(--fav); color: #fff; box-shadow: 0 2px 8px rgba(255,159,10,0.35); }
+
+  /* ---------- Tag chips (edit panel) ---------- */
+  .tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .tchip {
+    border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; background: #F2F2F7;
+    color: var(--secondary); cursor: pointer;
+  }
+  .tchip.on { background: rgba(255,159,10,0.16); color: #B25000; }
+  .tag-add { display: flex; gap: 7px; margin-top: 8px; }
+  .tag-add input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 14px; color: var(--ink);
+    border: 0; background: #F2F2F7; border-radius: 9px; padding: 8px 11px; outline: none;
+  }
+  .tag-add button {
+    border: 0; background: none; font-family: inherit; font-weight: 700;
+    font-size: 14px; color: var(--blue); padding: 6px 8px; cursor: pointer; flex-shrink: 0;
+  }
+  .quick-toggle {
+    margin-top: 10px; border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 13px; border-radius: 999px; background: #F2F2F7;
+    color: var(--secondary); cursor: pointer; display: inline-block;
+  }
+  .quick-toggle.on { background: rgba(255,204,0,0.25); color: #8F6B00; }
+  .quick-mark { font-size: 13px; flex-shrink: 0; }
+
+  /* ---------- Matrix view ---------- */
+  #matrixView {
+    flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 14px 16px calc(18px + var(--safe-bottom)); display: none;
+  }
+  #matrixView.active { display: block; }
+  .mx-card {
+    background: var(--card); border-radius: 16px; padding: 14px 14px 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .mx-frame { display: flex; gap: 6px; }
+  .mx-yaxis {
+    display: flex; flex-direction: column; justify-content: space-between;
+    align-items: center; padding: 2px 0; flex-shrink: 0; width: 18px;
+  }
+  .mx-yaxis .ax { font-size: 11px; color: var(--tertiary); font-weight: 600; }
+  .mx-yaxis .name {
+    writing-mode: vertical-rl; font-size: 12px; font-weight: 700;
+    color: var(--secondary); letter-spacing: .12em;
+  }
+  .mx-grid {
+    position: relative; flex: 1; aspect-ratio: 1 / 1;
+    border-radius: 10px; overflow: hidden;
+    background: #FAFAFC; border: 0.5px solid var(--sep);
+  }
+  .mx-q { position: absolute; width: 50%; height: 50%; }
+  .mx-q.q1 { right: 0; top: 0;    background: rgba(255,59,48,0.07); }
+  .mx-q.q2 { left: 0;  top: 0;    background: rgba(52,199,89,0.07); }
+  .mx-q.q3 { right: 0; bottom: 0; background: rgba(255,159,10,0.08); }
+  .mx-q.q4 { left: 0;  bottom: 0; background: rgba(120,120,128,0.06); }
+  .mx-qlabel {
+    position: absolute; font-size: 10px; font-weight: 700;
+    padding: 3px 7px; border-radius: 7px; letter-spacing: .03em;
+    pointer-events: none; z-index: 2;
+  }
+  .mx-qlabel.q1 { right: 6px; top: 6px;    color: #D70015; background: rgba(255,59,48,0.12); }
+  .mx-qlabel.q2 { left: 6px;  top: 6px;    color: #1B7A32; background: rgba(52,199,89,0.13); }
+  .mx-qlabel.q3 { right: 6px; bottom: 6px; color: #B25000; background: rgba(255,159,10,0.15); }
+  .mx-qlabel.q4 { left: 6px;  bottom: 6px; color: var(--secondary); background: rgba(120,120,128,0.12); }
+  .mx-line { position: absolute; background: var(--sep); z-index: 1; }
+  .mx-line.h { left: 0; right: 0; top: 50%; height: 1px; }
+  .mx-line.v { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .mx-dot {
+    position: absolute; z-index: 3; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    background: none; border: 0; padding: 4px; font-family: inherit; cursor: pointer;
+  }
+  .mx-dot .pt {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  .mx-dot.fav  .pt { background: var(--fav); }
+  .mx-dot.none .pt { background: #8E8E93; }
+  .mx-dot.cold .pt { background: var(--cold); }
+  .mx-dot .tag {
+    font-size: 9px; font-weight: 600; color: var(--ink);
+    background: rgba(255,255,255,0.88); border-radius: 5px; padding: 1px 4px;
+    max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .mx-xaxis {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 2px 2px; margin-left: 24px;
+  }
+  .mx-xaxis .ax { font-size: 11px; color: var(--tertiary); font-weight: 600; }
+  .mx-xaxis .name { font-size: 12px; font-weight: 700; color: var(--secondary); letter-spacing: .12em; }
+  .mx-hint {
+    margin-top: 12px; font-size: 12px; color: var(--secondary);
+    line-height: 1.6; text-align: center;
+  }
+  .mx-fav { margin-top: 18px; }
+  .mx-fav .row { cursor: pointer; }
+
+  /* ---------- Add bar ---------- */
+  .addbar {
+    display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+    padding: 9px 12px;
+    background: rgba(242,242,247,0.94);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 0.5px solid var(--sep);
+  }
+  .addbar input {
+    flex: 1; font-family: inherit; font-size: 16px; color: var(--ink);
+    border: 0; background: var(--card); border-radius: 11px;
+    padding: 11px 14px; outline: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .add-btn {
+    width: 42px; height: 42px; min-width: 42px; border: 0; border-radius: 50%;
+    background: var(--fav); color: #fff; font-size: 26px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 2px 8px rgba(255,159,10,0.4);
+    transition: opacity .15s, transform .1s;
+  }
+  .add-btn:active { transform: scale(0.92); }
+  .add-btn:disabled { opacity: .4; box-shadow: none; }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(var(--safe-bottom) + 16px); z-index: 900;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(30,30,32,0.96); color: #fff;
+    border-radius: 13px; padding: 12px 14px; font-size: 14px; font-weight: 500;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+    transform: translateY(180%); transition: transform .32s cubic-bezier(.32,.72,0,1);
+  }
+  #toast.show { transform: translateY(0); }
+  #toast .msg { flex: 1; }
+  #toast .undo {
+    border: 0; background: none; color: #FFB340; font-weight: 700;
+    font-size: 14px; font-family: inherit; cursor: pointer; padding: 2px 4px;
+  }
+
+  /* ---------- Sheet (sync) ---------- */
+  .sheet-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1100;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .sheet-mask.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101;
+    background: var(--bg); border-radius: 16px 16px 0 0;
+    padding: 8px 16px calc(20px + var(--safe-bottom));
+    transform: translateY(100%); transition: transform .3s cubic-bezier(.32,.72,0,1);
+    max-height: 86%; overflow-y: auto;
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--tertiary); margin: 6px auto 12px; }
+  .sheet h2 { font-size: 19px; font-weight: 700; margin: 4px 2px 14px; }
+  .sheet .card {
+    background: var(--card); border-radius: 13px; padding: 4px 0; margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .sheet .item {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 14px 16px; border: 0; background: none; font-family: inherit;
+    font-size: 16px; color: var(--ink); cursor: pointer; text-align: left;
+  }
+  .sheet .item:not(:last-child) { border-bottom: 0.5px solid var(--sep); }
+  .sheet .item .ico { font-size: 19px; width: 22px; text-align: center; }
+  .sheet .item .sub { display: block; font-size: 12px; color: var(--secondary); margin-top: 2px; }
+  .sheet .item .arrow { margin-left: auto; color: var(--tertiary); }
+  .sheet .note { font-size: 12px; color: var(--secondary); line-height: 1.6; margin: 0 4px 14px; }
+  .sheet .ver { text-align: center; font-size: 12px; color: var(--tertiary); padding: 4px 0 2px; }
+  .sheet .close {
+    width: 100%; padding: 14px; border: 0; border-radius: 13px;
+    background: var(--card); color: var(--blue); font-family: inherit;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+  }
+
+  /* ---------- Update banner ---------- */
+  #updateBanner {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(var(--safe-bottom) + 16px); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--blue); color: #fff; border: 0; border-radius: 14px;
+    padding: 14px 18px; font-family: inherit; font-size: 14px; font-weight: 600;
+    box-shadow: 0 8px 28px rgba(0,122,255,0.4); cursor: pointer;
+    transform: translateY(180%); transition: transform 0.35s cubic-bezier(.32,.72,0,1);
+  }
+  #updateBanner.show { transform: translateY(0); }
+  #updateBanner svg { display: block; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="navbar">
+    <button class="icon-btn" id="viewBtn" aria-label="表示切り替え"></button>
+    <span class="title">脳内フレッシュ</span>
+    <button class="icon-btn" id="syncBtn" aria-label="同期">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+      <span id="syncDot"></span>
+    </button>
+  </div>
+
+  <div class="addbar">
+    <input id="addInput" type="text" placeholder="タスクを追加…" enterkeyhint="done" autocomplete="off" />
+    <button class="add-btn" id="addBtn" aria-label="追加" disabled>＋</button>
+  </div>
+  <div id="filterBar" style="display:none;"></div>
+  <div id="list"></div>
+  <div id="matrixView"></div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"><span class="msg"></span><button class="undo" style="display:none;">取り消し</button></div>
+
+<!-- Sync sheet -->
+<div class="sheet-mask" id="sheetMask"></div>
+<div class="sheet" id="syncSheet">
+  <div class="grab"></div>
+  <h2>同期（iCloud Drive）</h2>
+  <div class="card">
+    <button class="item" id="exportBtn">
+      <span class="ico">📤</span>
+      <span>書き出す<span class="sub" id="lastExport">この端末の内容をファイルに保存</span></span>
+      <span class="arrow">›</span>
+    </button>
+    <button class="item" id="importBtn">
+      <span class="ico">📥</span>
+      <span>取り込む<span class="sub" id="lastImport">他端末のファイルを読み込んで統合</span></span>
+      <span class="arrow">›</span>
+    </button>
+  </div>
+  <p class="note">
+    iPhoneとiPadで <b>脳内フレッシュ-sync.json</b> をiCloud Drive経由でやり取りします。<br>
+    ① 編集した端末で「書き出す」→ 共有シートで「"ファイル"に保存」→ iCloud Driveの同じ場所に上書き。<br>
+    ② もう片方の端末で「取り込む」→ 同じファイルを選択。新しい方の内容が自動で採用され、削除も反映されます。
+  </p>
+  <div class="ver" id="versionLabel"></div>
+  <button class="close" id="closeSheet">閉じる</button>
+  <input type="file" id="fileInput" accept="application/json,.json" style="display:none;" />
+</div>
+
+<script>
+  // ---------- helpers ----------
+  const $ = (s) => document.querySelector(s);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const now = () => Date.now();
+
+  // ---------- バージョン ----------
+  // リリースのたびに、ここと sw.js の CACHE 名をセットで上げる。
+  const APP_VERSION = '2.1.1';
+
+  // ---------- バケット定義 ----------
+  // 上から順（index小=優先度高）。内部キーは固定（表示名は変えてOK）。
+  const BUCKETS = ['fav', 'none', 'cold'];
+  const META = {
+    fav:  { label: 'お気に入り', dot: '★', cls: 'fav'  },
+    none: { label: 'ラベルなし', dot: '·', cls: 'none' },
+    cold: { label: 'コールド',   dot: '❄', cls: 'cold' },
+  };
+
+  // ---------- IndexedDB ----------
+  const DB_NAME = 'yaridoki-db';   // 固定。変えると保存データが読めなくなる。
+  const DB_VERSION = 1;
+  let _db = null;
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('items')) db.createObjectStore('items', { keyPath: 'id' });
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  const store = (mode='readonly') => _db.transaction('items', mode).objectStore('items');
+  const getAll = () => new Promise((res, rej) => { const r = store().getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const put = (v) => new Promise((res, rej) => { const r = store('readwrite').put(v); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+  const hardDel = (id) => new Promise((res, rej) => { const r = store('readwrite').delete(id); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+
+  // ---------- state ----------
+  const state = { items: [] };
+  let editingId = null;
+
+  async function loadAll() {
+    let all = await getAll();
+    // 古い墓石（削除済み）を90日で物理削除して肥大化を防ぐ
+    const cutoff = now() - 90 * 86400000;
+    for (const it of all) {
+      if (it.deleted && (it.updatedAt || 0) < cutoff) await hardDel(it.id);
+    }
+    // 前日以前に完了したタスクは自動で片付ける（ソフト削除→同期にも反映）
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    for (const it of all) {
+      if (!it.deleted && it.done && (it.doneAt || 0) < todayStart.getTime()) {
+        it.deleted = true; it.updatedAt = now();
+        await put(it);
+      }
+    }
+    all = await getAll();
+    state.items = all;
+  }
+
+  const live = () => state.items.filter((it) => !it.deleted);
+  const QUICK = '__quick__';
+  const selected = new Set(); // 選択中の条件(⚡とタグ)。空 = すべて。AND絞り込み。
+  const matchFilter = (it) => {
+    for (const s of selected) {
+      if (s === QUICK) { if (!it.quick) return false; }
+      else if (!(it.tags || []).includes(s)) return false;
+    }
+    return true;
+  };
+  const allTagNames = () =>
+    [...new Set(live().flatMap((it) => it.tags || []))].sort((a, b) => a.localeCompare(b, 'ja'));
+
+  // インパクト高い順 → 同点なら手間が軽い順(未設定は中央5.5扱い) → 新しい順
+  const cmpTask = (a, c) =>
+    ((c.pri || 0) - (a.pri || 0))
+    || ((a.urg || 5.5) - (c.urg || 5.5))
+    || ((c.createdAt || 0) - (a.createdAt || 0));
+  function inBucket(b) {
+    return live().filter((it) => it.bucket === b && !it.done && matchFilter(it)).sort(cmpTask);
+  }
+  function doneItems() {
+    return live().filter((it) => it.done && matchFilter(it))
+      .sort((a, c) => (c.doneAt || 0) - (a.doneAt || 0));
+  }
+
+  // ---------- 同期忘れドット ----------
+  // 最後の書き出しより後にローカル編集があれば、同期ボタンにドットを出す
+  const markEdited = () => localStorage.setItem('yaridoki.lastEdit', String(now()));
+  function renderSyncDot() {
+    const le = Number(localStorage.getItem('yaridoki.lastEdit') || 0);
+    const ex = Number(localStorage.getItem('yaridoki.lastExport') || 0);
+    $('#syncDot').style.display = le > ex ? 'block' : 'none';
+  }
+
+  // ---------- filter bar ----------
+  const filterEl = $('#filterBar');
+  function renderFilterBar() {
+    const tags = allTagNames();
+    const hasQuick = live().some((it) => it.quick && !it.done);
+    for (const s of [...selected]) {
+      if (s === QUICK ? !hasQuick : !tags.includes(s)) selected.delete(s);
+    }
+    if (tags.length === 0 && !hasQuick) { selected.clear(); filterEl.style.display = 'none'; filterEl.innerHTML = ''; return; }
+    filterEl.style.display = '';
+    filterEl.innerHTML = '';
+    const mk = (label, val) => {
+      const b = document.createElement('button');
+      const on = val === null ? selected.size === 0 : selected.has(val);
+      b.className = 'fchip' + (on ? ' on' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        if (val === null) selected.clear();
+        else selected.has(val) ? selected.delete(val) : selected.add(val);
+        editingId = null;
+        render();
+      });
+      filterEl.appendChild(b);
+    };
+    mk('すべて', null);
+    if (hasQuick) mk('⚡サッと', QUICK);
+    for (const t of tags) mk('#' + t, t);
+  }
+
+  // ---------- render ----------
+  const listEl = $('#list');
+  const matrixEl = $('#matrixView');
+  const viewBtn = $('#viewBtn');
+  let view = 'list'; // 'list' | 'matrix'
+
+  const ICON_MATRIX = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>';
+  const ICON_LIST = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>';
+
+  viewBtn.addEventListener('click', () => {
+    view = view === 'list' ? 'matrix' : 'list';
+    editingId = null;
+    render();
+  });
+
+  function render() {
+    viewBtn.innerHTML = view === 'list' ? ICON_MATRIX : ICON_LIST;
+    listEl.style.display = view === 'list' ? '' : 'none';
+    matrixEl.classList.toggle('active', view === 'matrix');
+    $('.addbar').style.display = view === 'list' ? '' : 'none';
+    renderFilterBar();
+    renderSyncDot();
+    if (view === 'list') renderList(); else renderMatrix();
+  }
+
+  function renderList() {
+    listEl.innerHTML = '';
+    for (const b of BUCKETS) {
+      const m = META[b];
+      const items = inBucket(b);
+      const sec = document.createElement('div');
+      sec.className = 'section';
+      const head = document.createElement('div');
+      head.className = 'sec-head ' + m.cls;
+      head.innerHTML = `<span class="dot">${m.dot}</span><span>${m.label}</span><span class="count">${items.length || ''}</span>`;
+      sec.appendChild(head);
+
+      if (items.length === 0) {
+        const e = document.createElement('div');
+        e.className = 'empty';
+        e.textContent = '（なし）';
+        sec.appendChild(e);
+      } else {
+        const g = document.createElement('div');
+        g.className = 'group';
+        for (const it of items) g.appendChild(buildRow(it));
+        sec.appendChild(g);
+      }
+      listEl.appendChild(sec);
+    }
+
+    // ✓ 完了（今日完了した分。日付が変わると自動で消える）
+    const dones = doneItems();
+    if (dones.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'section';
+      const head = document.createElement('div');
+      head.className = 'sec-head done';
+      head.innerHTML = `<span class="dot">✓</span><span>完了</span><span class="count">${dones.length}</span>`;
+      sec.appendChild(head);
+      const g = document.createElement('div');
+      g.className = 'group';
+      for (const it of dones) g.appendChild(buildRow(it));
+      sec.appendChild(g);
+      listEl.appendChild(sec);
+    }
+  }
+
+  function buildRow(it) {
+    const wrap = document.createElement('div');
+    wrap.className = 'row-wrap';
+
+    const bg = document.createElement('div');
+    bg.className = 'row-bg';
+    wrap.appendChild(bg);
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.id = it.id;
+
+    if (editingId === it.id) {
+      row.classList.add('editing');
+
+      const top = document.createElement('div');
+      top.className = 'edit-top';
+      const input = document.createElement('input');
+      input.className = 'edit-input'; input.type = 'text'; input.value = it.text;
+      input.enterKeyHint = 'done';
+      top.appendChild(input);
+
+      const detail = document.createElement('textarea');
+      detail.className = 'edit-detail';
+      detail.placeholder = '詳細（任意）。＋追記で日付ログ';
+      detail.value = it.detail || '';
+      detail.rows = 3;
+
+      // ＋追記: 先頭に日付見出しを挿入し、新しい思考ほど上に積むログにする
+      const dHead = document.createElement('div');
+      dHead.className = 'detail-head';
+      const dLbl = document.createElement('span');
+      dLbl.className = 'lbl'; dLbl.textContent = '詳細';
+      const appendBtn = document.createElement('button');
+      appendBtn.className = 'append-btn'; appendBtn.type = 'button';
+      appendBtn.textContent = '＋追記';
+      appendBtn.addEventListener('click', () => {
+        const d = new Date();
+        const h = `── ${d.getMonth() + 1}/${d.getDate()} ──`;
+        const v = detail.value;
+        if (!v.startsWith(h)) {
+          detail.value = h + '\n' + (v.trim() ? '\n' + v : '');
+        }
+        detail.focus();
+        detail.setSelectionRange(h.length + 1, h.length + 1);
+        // 行数が増えてきたら少し広げる
+        detail.rows = Math.min(10, Math.max(3, detail.value.split('\n').length + 1));
+        paintLinks();
+      });
+      dHead.append(dLbl, appendBtn);
+
+      // 詳細内のURLをチップ化（タップで開く。入力中も追従）
+      const linkRow = document.createElement('div');
+      linkRow.className = 'link-row';
+      function paintLinks() {
+        linkRow.innerHTML = '';
+        const urls = (detail.value.match(/https?:\/\/[^\s]+/g) || []).slice(0, 8);
+        for (const u of urls) {
+          const a = document.createElement('a');
+          a.className = 'lchip';
+          a.href = u; a.target = '_blank'; a.rel = 'noopener';
+          let label = u;
+          try { label = new URL(u).hostname.replace(/^www\./, ''); } catch (_) {}
+          a.textContent = '🔗 ' + label;
+          linkRow.appendChild(a);
+        }
+        linkRow.style.display = urls.length ? '' : 'none';
+      }
+      detail.addEventListener('input', paintLinks);
+      paintLinks();
+
+      // タグ: 既存タグをチップで一覧し、タップでオン/オフ。新規は入力して追加。
+      const knownTags = allTagNames();
+      const cur = new Set(it.tags || []);
+      const chipsRow = document.createElement('div');
+      chipsRow.className = 'tag-row';
+      function paintChips() {
+        chipsRow.innerHTML = '';
+        const names = [...new Set([...knownTags, ...cur])];
+        for (const name of names) {
+          const c = document.createElement('button');
+          c.className = 'tchip' + (cur.has(name) ? ' on' : '');
+          c.textContent = '#' + name;
+          c.addEventListener('click', () => {
+            cur.has(name) ? cur.delete(name) : cur.add(name);
+            paintChips();
+          });
+          chipsRow.appendChild(c);
+        }
+      }
+      paintChips();
+      const addRow = document.createElement('div');
+      addRow.className = 'tag-add';
+      const tin = document.createElement('input');
+      tin.type = 'text'; tin.placeholder = '新しいタグ'; tin.enterKeyHint = 'done';
+      const tbtn = document.createElement('button');
+      tbtn.textContent = '追加';
+      tbtn.addEventListener('click', () => {
+        const v = tin.value.trim().replace(/^#/, '');
+        if (!v) return;
+        cur.add(v);
+        if (!knownTags.includes(v)) knownTags.push(v);
+        tin.value = '';
+        paintChips();
+      });
+      tin.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tbtn.click(); } });
+      addRow.append(tin, tbtn);
+
+      // ⚡サッとできる トグル
+      let quick = !!it.quick;
+      const quickBtn = document.createElement('button');
+      quickBtn.type = 'button';
+      quickBtn.className = 'quick-toggle' + (quick ? ' on' : '');
+      quickBtn.textContent = '⚡ サッとできる';
+      quickBtn.addEventListener('click', () => {
+        quick = !quick;
+        quickBtn.classList.toggle('on', quick);
+      });
+
+      const mkScale = (cls, label, initVal) => {
+        const r = document.createElement('div');
+        r.className = 'scale-row ' + cls;
+        const lb = document.createElement('span');
+        lb.className = 'lbl'; lb.textContent = label;
+        const sl = document.createElement('input');
+        sl.type = 'range'; sl.min = '0'; sl.max = '10'; sl.step = '1';
+        sl.value = String(initVal ?? 0);
+        const val = document.createElement('span');
+        val.className = 'val';
+        const paint = () => {
+          const v = Number(sl.value);
+          val.textContent = v === 0 ? '—' : String(v);
+          val.classList.toggle('unset', v === 0);
+        };
+        sl.addEventListener('input', paint);
+        paint();
+        r.append(lb, sl, val);
+        return { el: r, get: () => { const v = Number(sl.value); return v === 0 ? null : v; } };
+      };
+      const priScale = mkScale('pri', 'インパクト', it.pri);
+      const urgScale = mkScale('urg', '手間', it.urg);
+
+      const actions = document.createElement('div');
+      actions.className = 'edit-actions';
+      const del = document.createElement('button');
+      del.className = 'ebtn del'; del.textContent = '削除';
+      const done = document.createElement('button');
+      done.className = 'ebtn done'; done.textContent = '完了';
+      actions.append(del, done);
+
+      row.append(actions, top, dHead, detail, linkRow, chipsRow, addRow, quickBtn, priScale.el, urgScale.el);
+      wrap.appendChild(row);
+      detail.rows = Math.min(10, Math.max(3, detail.value.split('\n').length + 1));
+
+      const save = async () => {
+        const t = input.value.trim();
+        editingId = null;
+        if (!t) { await removeItem(it.id, it.text); return; }
+        const np = priScale.get(), nu = urgScale.get();
+        const nd = detail.value.trim() || null;
+        const ntags = Array.from(cur);
+        const changed = t !== it.text || np !== (it.pri ?? null) || nu !== (it.urg ?? null)
+          || nd !== (it.detail ?? null)
+          || quick !== !!it.quick
+          || JSON.stringify(ntags) !== JSON.stringify(it.tags || []);
+        if (changed) {
+          it.text = t; it.pri = np; it.urg = nu; it.detail = nd; it.tags = ntags; it.quick = quick; it.updatedAt = now();
+          await put(it);
+          markEdited();
+        }
+        render();
+      };
+      done.addEventListener('click', save);
+      del.addEventListener('click', async () => { editingId = null; await removeItem(it.id, it.text); });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 30);
+      return wrap;
+    }
+
+    if (it.done) row.classList.add('is-done');
+
+    const check = document.createElement('button');
+    check.className = 'check';
+    check.setAttribute('aria-label', it.done ? '未完了に戻す' : '完了にする');
+    check.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    check.addEventListener('click', (e) => { e.stopPropagation(); toggleDone(it); });
+    row.appendChild(check);
+
+    const txt = document.createElement('div');
+    txt.className = 'txt'; txt.textContent = it.text;
+    const metaParts = [];
+    if (it.tags && it.tags.length) metaParts.push(it.tags.map((t) => '#' + t).join(' '));
+    if (it.detail) metaParts.push(it.detail.replace(/─+/g, '').replace(/\s+/g, ' ').trim());
+    if (metaParts.length) {
+      const sub = document.createElement('span');
+      sub.className = 'sub';
+      sub.textContent = metaParts.join('　');
+      txt.appendChild(sub);
+    }
+    row.appendChild(txt);
+    if (it.quick) {
+      const q = document.createElement('span');
+      q.className = 'quick-mark'; q.textContent = '⚡';
+      row.appendChild(q);
+    }
+    if (it.pri || it.urg) {
+      const badge = document.createElement('span');
+      badge.className = 'pu-badge';
+      badge.innerHTML =
+        (it.pri ? `<i class="p"></i>${it.pri}` : '') +
+        (it.pri && it.urg ? '<span class="sp"></span>' : '') +
+        (it.urg ? `<i class="u"></i>${it.urg}` : '');
+      row.appendChild(badge);
+    }
+    const chev = document.createElement('span');
+    chev.className = 'chev'; chev.textContent = '›';
+    row.appendChild(chev);
+    wrap.appendChild(row);
+
+    if (it.done) {
+      // 完了行はスワイプ不要。タップで編集のみ。
+      row.addEventListener('click', () => { if (!editingId) { editingId = it.id; render(); } });
+    } else {
+      attachSwipe(row, bg, it);
+    }
+    return wrap;
+  }
+
+  async function toggleDone(it) {
+    it.done = !it.done;
+    it.doneAt = it.done ? now() : null;
+    it.updatedAt = now();
+    await put(it);
+    markEdited();
+    render();
+  }
+
+  // ---------- swipe (Pointer Events) ----------
+  function attachSwipe(row, bg, it) {
+    let startX = 0, startY = 0, dx = 0, dir = 0, decided = false, dragging = false, moved = false;
+    const FIRE = 64;
+    const idx = BUCKETS.indexOf(it.bucket);
+
+    const canUp = idx > 0;       // 右=上げる
+    const canDown = idx < BUCKETS.length - 1; // 左=下げる
+
+    function setBg(d) {
+      if (d > 0) {
+        bg.className = 'row-bg up' + (canUp ? '' : ' capped');
+        bg.textContent = canUp ? '⬆ 上げる' : '最上です';
+      } else {
+        bg.className = 'row-bg down' + (canDown ? '' : ' capped');
+        bg.textContent = canDown ? '下げる ⬇' : '最下です';
+      }
+    }
+
+    row.addEventListener('pointerdown', (e) => {
+      if (editingId) return;
+      if (e.target.closest('.check')) return;
+      dragging = true; moved = false; decided = false; dir = 0; dx = 0;
+      startX = e.clientX; startY = e.clientY;
+      row.style.transition = 'none';
+    });
+    row.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const mx = e.clientX - startX, my = e.clientY - startY;
+      if (!decided) {
+        if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+        decided = true;
+        dir = Math.abs(mx) > Math.abs(my) ? 1 : 0; // 1=横, 0=縦
+        if (dir === 1) { try { row.setPointerCapture(e.pointerId); } catch (_) {} }
+      }
+      if (dir !== 1) return;
+      moved = true;
+      e.preventDefault();
+      dx = mx;
+      // 端では抵抗（ラバーバンド）
+      if ((dx > 0 && !canUp) || (dx < 0 && !canDown)) dx *= 0.28;
+      setBg(dx);
+      row.style.transform = `translateX(${dx}px)`;
+    });
+    function end() {
+      if (!dragging) return;
+      dragging = false;
+      row.style.transition = 'transform .22s cubic-bezier(.32,.72,0,1)';
+      const fire = (dx > FIRE && canUp) || (dx < -FIRE && canDown);
+      if (fire) {
+        const goUp = dx > 0;
+        row.style.transform = `translateX(${goUp ? '110%' : '-110%'})`;
+        setTimeout(() => moveTier(it, goUp ? -1 : 1), 130);
+      } else {
+        row.style.transform = 'translateX(0)';
+      }
+    }
+    row.addEventListener('pointerup', () => {
+      const wasTap = !moved && !decided;   // 横にも縦にも動いていない＝純粋なタップ
+      end();
+      if (wasTap && !editingId) { editingId = it.id; render(); }
+    });
+    row.addEventListener('pointercancel', end);
+  }
+
+  async function moveTier(it, delta) {
+    const idx = BUCKETS.indexOf(it.bucket);
+    const ni = Math.max(0, Math.min(BUCKETS.length - 1, idx + delta));
+    if (ni === idx) { render(); return; }
+    it.bucket = BUCKETS[ni]; it.updatedAt = now();
+    await put(it);
+    markEdited();
+    render();
+  }
+
+  // ---------- matrix ----------
+  function renderMatrix() {
+    const pool = live().filter((it) => !it.done && matchFilter(it));
+    const items = pool.filter((it) => it.pri && it.urg);
+    const unset = pool.length - items.length;
+    const fLabel = selected.size
+      ? '「' + [...selected].map((s) => s === QUICK ? '⚡サッと' : '#' + s).join(' × ') + '」のタスク'
+      : 'タスク';
+
+    // 同じ座標の点は小さな円状に散らして重なりを避ける
+    const groups = new Map();
+    for (const it of items) {
+      const k = it.pri + '-' + it.urg;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(it);
+    }
+
+    let dots = '';
+    for (const [, g] of groups) {
+      const n = g.length;
+      g.forEach((it, i) => {
+        // 1..10 → セル中央にマッピング（端の点が枠にめり込まないよう5%〜95%に収める）
+        let x = 95 - ((it.urg - 0.5) / 10) * 90; // 手間が軽いほど右
+        let y = 95 - ((it.pri - 0.5) / 10) * 90;
+        if (n > 1) {
+          const ang = (2 * Math.PI * i) / n - Math.PI / 2;
+          const r = n === 2 ? 2.2 : 3.2; // %単位のずらし半径
+          x += Math.cos(ang) * r;
+          y += Math.sin(ang) * r;
+        }
+        x = Math.max(3, Math.min(97, x));
+        y = Math.max(3, Math.min(97, y));
+        const short = (it.quick ? '⚡' : '') + (it.text.length > 8 ? it.text.slice(0, 8) + '…' : it.text);
+        dots += `<button class="mx-dot ${it.bucket}" style="left:${x}%;top:${y}%;" data-id="${it.id}">
+        <span class="pt"></span><span class="tag">${escapeHtml(short)}</span>
+      </button>`;
+      });
+    }
+
+    // ★お気に入りの一覧（フィルタ適用後）を図の下に
+    const favs = pool.filter((it) => it.bucket === 'fav').sort(cmpTask);
+    let favHtml = '';
+    if (favs.length > 0) {
+      let rows = '';
+      for (const it of favs) {
+        const metaParts = [];
+        if (it.tags && it.tags.length) metaParts.push(it.tags.map((t) => '#' + t).join(' '));
+        if (it.detail) metaParts.push(it.detail.replace(/─+/g, '').replace(/\s+/g, ' ').trim());
+        const sub = metaParts.length ? `<span class="sub">${escapeHtml(metaParts.join('　'))}</span>` : '';
+        const badge = (it.pri || it.urg)
+          ? `<span class="pu-badge">${it.pri ? `<i class="p"></i>${it.pri}` : ''}${it.pri && it.urg ? '<span class="sp"></span>' : ''}${it.urg ? `<i class="u"></i>${it.urg}` : ''}</span>`
+          : '';
+        const qmark = it.quick ? '<span class="quick-mark">⚡</span>' : '';
+        rows += `<div class="row-wrap"><div class="row mxfav-row" data-id="${it.id}">
+          <div class="txt">${escapeHtml(it.text)}${sub}</div>${qmark}${badge}<span class="chev">›</span>
+        </div></div>`;
+      }
+      favHtml = `<div class="mx-fav">
+        <div class="sec-head fav"><span class="dot">★</span><span>お気に入り</span><span class="count">${favs.length}</span></div>
+        <div class="group">${rows}</div>
+      </div>`;
+    }
+
+    matrixEl.innerHTML = `
+      <div class="mx-card">
+        <div class="mx-frame">
+          <div class="mx-yaxis"><span class="ax">高</span><span class="name">インパクト</span><span class="ax">低</span></div>
+          <div class="mx-grid">
+            <div class="mx-q q1"></div><div class="mx-q q2"></div>
+            <div class="mx-q q3"></div><div class="mx-q q4"></div>
+            <div class="mx-line h"></div><div class="mx-line v"></div>
+            <span class="mx-qlabel q2">じっくりやる</span>
+            <span class="mx-qlabel q1">すぐやる</span>
+            <span class="mx-qlabel q4">やらないかも</span>
+            <span class="mx-qlabel q3">ついでにやる</span>
+            ${dots}
+          </div>
+        </div>
+        <div class="mx-xaxis"><span class="ax">重</span><span class="name">手間</span><span class="ax">軽</span></div>
+      </div>
+      <div class="mx-hint">${
+        items.length === 0
+          ? `まだ図に出せる${fLabel}がありません。<br>リストでタスクをタップしてインパクト・手間を設定してください。`
+          : (unset > 0 ? `数値未設定の${fLabel} ${unset}件（リストでタップして設定すると図に出ます）` : 'タスクの点をタップすると編集できます')
+      }</div>${favHtml}`;
+
+    matrixEl.querySelectorAll('.mx-dot, .mxfav-row').forEach((d) => {
+      d.addEventListener('click', () => {
+        view = 'list';
+        editingId = d.dataset.id;
+        render();
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------- add ----------
+  const addInput = $('#addInput'), addBtn = $('#addBtn');
+  function refreshAddBtn() { addBtn.disabled = addInput.value.trim() === ''; }
+  addInput.addEventListener('input', refreshAddBtn);
+  async function addTask() {
+    const t = addInput.value.trim();
+    if (!t) return;
+    const it = { id: uid(), text: t, bucket: 'none', pri: null, urg: null, detail: null, tags: [], quick: false, done: false, doneAt: null, createdAt: now(), updatedAt: now(), deleted: false };
+    await put(it); state.items.push(it);
+    markEdited();
+    addInput.value = ''; refreshAddBtn();
+    render();
+    addInput.focus();
+  }
+  addBtn.addEventListener('click', addTask);
+  addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
+
+  // ---------- delete (soft) + undo toast ----------
+  const toastEl = $('#toast'), toastMsg = toastEl.querySelector('.msg'), toastUndo = toastEl.querySelector('.undo');
+  let toastTimer = null;
+  function showToast(msg, undoFn) {
+    clearTimeout(toastTimer);
+    toastMsg.textContent = msg;
+    if (undoFn) {
+      toastUndo.style.display = ''; 
+      toastUndo.onclick = () => { clearTimeout(toastTimer); hideToast(); undoFn(); };
+    } else { toastUndo.style.display = 'none'; toastUndo.onclick = null; }
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(hideToast, 4200);
+  }
+  function hideToast() { toastEl.classList.remove('show'); }
+
+  async function removeItem(id, text) {
+    const it = state.items.find((x) => x.id === id);
+    if (!it) return;
+    it.deleted = true; it.updatedAt = now();
+    await put(it);
+    markEdited();
+    render();
+    showToast('「' + (text.length > 14 ? text.slice(0, 14) + '…' : text) + '」を削除', async () => {
+      it.deleted = false; it.updatedAt = now();
+      await put(it); markEdited(); render();
+    });
+  }
+
+  // ---------- sync sheet ----------
+  const sheet = $('#syncSheet'), mask = $('#sheetMask');
+  function openSheet() { refreshSyncLabels(); mask.classList.add('show'); sheet.classList.add('show'); }
+  function closeSheet() { mask.classList.remove('show'); sheet.classList.remove('show'); }
+  $('#syncBtn').addEventListener('click', openSheet);
+  $('#closeSheet').addEventListener('click', closeSheet);
+  mask.addEventListener('click', closeSheet);
+
+  function fmt(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function refreshSyncLabels() {
+    const ex = fmt(Number(localStorage.getItem('yaridoki.lastExport')));
+    const im = fmt(Number(localStorage.getItem('yaridoki.lastImport')));
+    $('#lastExport').textContent = ex ? '前回: ' + ex : 'この端末の内容をファイルに保存';
+    $('#lastImport').textContent = im ? '前回: ' + im : '他端末のファイルを読み込んで統合';
+  }
+
+  // ---------- export / import (smart merge) ----------
+  const SCHEMA = 'yaridoki.v1';
+  $('#exportBtn').addEventListener('click', () => {
+    const data = { schema: SCHEMA, exportedAt: new Date().toISOString(), items: state.items };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = '脳内フレッシュ-sync.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    localStorage.setItem('yaridoki.lastExport', String(now()));
+    refreshSyncLabels();
+    renderSyncDot();
+    showToast('書き出しました');
+  });
+
+  const fileInput = $('#fileInput');
+  $('#importBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch (_) { showToast('読み込めませんでした'); return; }
+    if (!data || data.schema !== SCHEMA || !Array.isArray(data.items)) {
+      showToast('脳内フレッシュのファイルではないようです'); return;
+    }
+    const localById = new Map(state.items.map((n) => [n.id, n]));
+    let added = 0, updated = 0;
+    const toApply = [];
+    for (const it of data.items) {
+      const local = localById.get(it.id);
+      if (!local) { toApply.push(it); added++; }
+      else if ((it.updatedAt || 0) > (local.updatedAt || 0)) { toApply.push(it); updated++; }
+    }
+    if (toApply.length === 0) { showToast('すでに最新です'); return; }
+    if (!confirm(`取り込みます\n新規 ${added}件 / 更新 ${updated}件`)) return;
+    for (const it of toApply) {
+      if (!('deleted' in it)) it.deleted = false;
+      await put(it);
+    }
+    await loadAll();
+    localStorage.setItem('yaridoki.lastImport', String(now()));
+    refreshSyncLabels();
+    render();
+    showToast(`取り込みました（新規${added} / 更新${updated}）`);
+  });
+
+  // ---------- init ----------
+  (async function init() {
+    setupViewportTracking();
+    await openDB();
+    await loadAll();
+    render();
+    $('#versionLabel').textContent = 'v' + APP_VERSION;
+    refreshAddBtn();
+  })();
+
+  // ---------- visualViewport（キーボード対策） ----------
+  function setupViewportTracking() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    let baseHeight = vv.height;
+    function apply() { root.style.setProperty('--app-height', vv.height + 'px'); }
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    window.addEventListener('orientationchange', () => { setTimeout(() => { baseHeight = vv.height; apply(); }, 300); });
+    apply();
+  }
+
+  // ---------- Service Worker + 自動アップデート ----------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const swUrl = new URL('sw.js', location.href).href;
+        const res = await fetch(swUrl, { method: 'HEAD' });
+        if (!res.ok) return;
+        const reg = await navigator.serviceWorker.register('sw.js');
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+        reg.addEventListener('updatefound', () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(sw);
+          });
+        });
+        reg.update();
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (refreshing) return; refreshing = true; window.location.reload();
+        });
+      } catch (e) {}
+    });
+  }
+  function showUpdateBanner(waitingSW) {
+    if (document.getElementById('updateBanner')) return;
+    const b = document.createElement('button');
+    b.id = 'updateBanner';
+    b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg><span>新しいバージョンがあります — タップで更新</span>';
+    b.addEventListener('click', () => {
+      b.disabled = true; b.querySelector('span').textContent = '更新中…';
+      waitingSW.postMessage('SKIP_WAITING');
+    });
+    document.body.appendChild(b);
+    requestAnimationFrame(() => b.classList.add('show'));
+  }
+</script>
+</body>
+</html>
