@@ -269,6 +269,21 @@
     #list .section { max-width: 680px; margin-left: auto; margin-right: auto; }
     .addbar, #filterBar { padding-left: max(16px, calc((100% - 680px) / 2)); padding-right: max(16px, calc((100% - 680px) / 2)); }
   }
+  /* PCなど広い画面: 整理前/定常運転を2カラム同時表示 */
+  @media (min-width: 900px) {
+    #list.twocol {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px;
+      align-items: start; width: 100%; max-width: 1100px;
+      margin: 0 auto; padding: 8px 16px 16px; box-sizing: border-box;
+    }
+    #list.twocol .pcol { min-width: 0; }
+    #list.twocol .section { max-width: none; margin: 14px 8px 4px; }
+    #list.twocol .pcol-head {
+      text-align: center; font-size: 12px; font-weight: 700;
+      color: var(--tertiary); letter-spacing: 0.1em; padding: 8px 0 0;
+    }
+    .addbar, #filterBar { padding-left: max(16px, calc((100% - 1068px) / 2)); padding-right: max(16px, calc((100% - 1068px) / 2)); }
+  }
   #matrixView.active { display: block; }
   .mx-card {
     background: var(--card); border-radius: 16px; padding: 14px 14px 10px;
@@ -494,13 +509,13 @@
 
   // ---------- バージョン ----------
   // リリースのたびに、ここと sw.js の CACHE 名をセットで上げる。
-  const APP_VERSION = '2.3.0';
+  const APP_VERSION = '2.4.0';
 
   // ---------- バケット定義 ----------
   // 2×2セグメントの並び(左上,右上,左下,右下)。内部キーは固定（表示名は変えてOK）。
   const BUCKETS = ['none', 'fav', 'cold', 'rout'];
   const META = {
-    none: { label: 'ラベルなし', dot: '·',  cls: 'none' },
+    none: { label: 'inbox', dot: '📥', cls: 'none' },  // 内部キーnoneは不変
     fav:  { label: 'お気に入り', dot: '★', cls: 'fav'  },
     cold: { label: 'コールド',   dot: '❄', cls: 'cold' },
     rout: { label: 'ルーティン', dot: '🔁', cls: 'rout' },
@@ -642,6 +657,8 @@
   });
 
   let page = 0; // 0=整理前, 1=定常運転
+  const wideMQ = window.matchMedia('(min-width: 900px)');
+  wideMQ.addEventListener('change', () => render());
   const pageSwitchEl = $('#pageSwitch');
   function renderPageSwitch() {
     pageSwitchEl.innerHTML = '';
@@ -660,36 +677,55 @@
     listEl.style.display = view === 'list' ? '' : 'none';
     matrixEl.classList.toggle('active', view === 'matrix');
     $('.addbar').style.display = view === 'list' ? '' : 'none';
-    pageSwitchEl.style.display = view === 'list' ? '' : 'none';
+    pageSwitchEl.style.display = (view === 'list' && !wideMQ.matches) ? '' : 'none';
     renderFilterBar();
     renderSyncDot();
     if (view === 'list') { renderPageSwitch(); renderList(); } else renderMatrix();
   }
 
+  function buildSection(b) {
+    const m = META[b];
+    const items = inBucket(b);
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    const head = document.createElement('div');
+    head.className = 'sec-head ' + m.cls;
+    head.innerHTML = `<span class="dot">${m.dot}</span><span>${m.label}</span><span class="count">${items.length || ''}</span>`;
+    sec.appendChild(head);
+
+    if (items.length === 0) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = '（なし）';
+      sec.appendChild(e);
+    } else {
+      const g = document.createElement('div');
+      g.className = 'group';
+      for (const it of items) g.appendChild(buildRow(it));
+      sec.appendChild(g);
+    }
+    return sec;
+  }
+
   function renderList() {
     listEl.innerHTML = '';
-    for (const b of PAGES[page].buckets) {
-      const m = META[b];
-      const items = inBucket(b);
-      const sec = document.createElement('div');
-      sec.className = 'section';
-      const head = document.createElement('div');
-      head.className = 'sec-head ' + m.cls;
-      head.innerHTML = `<span class="dot">${m.dot}</span><span>${m.label}</span><span class="count">${items.length || ''}</span>`;
-      sec.appendChild(head);
+    const wide = wideMQ.matches;
+    listEl.classList.toggle('twocol', wide);
 
-      if (items.length === 0) {
-        const e = document.createElement('div');
-        e.className = 'empty';
-        e.textContent = '（なし）';
-        sec.appendChild(e);
-      } else {
-        const g = document.createElement('div');
-        g.className = 'group';
-        for (const it of items) g.appendChild(buildRow(it));
-        sec.appendChild(g);
+    if (wide) {
+      // PCなど広い画面: 整理前と定常運転を左右2カラムで同時表示
+      for (const p of PAGES) {
+        const col = document.createElement('div');
+        col.className = 'pcol';
+        const h = document.createElement('div');
+        h.className = 'pcol-head';
+        h.textContent = p.name;
+        col.appendChild(h);
+        for (const b of p.buckets) col.appendChild(buildSection(b));
+        listEl.appendChild(col);
       }
-      listEl.appendChild(sec);
+    } else {
+      for (const b of PAGES[page].buckets) listEl.appendChild(buildSection(b));
     }
 
     // ✓ 完了（今日完了した分。日付が変わると自動で消える）
@@ -697,6 +733,7 @@
     if (dones.length > 0) {
       const sec = document.createElement('div');
       sec.className = 'section';
+      if (wide) sec.style.gridColumn = '1 / -1';
       const head = document.createElement('div');
       head.className = 'sec-head done';
       head.innerHTML = `<span class="dot">✓</span><span>完了</span><span class="count">${dones.length}</span>`;
