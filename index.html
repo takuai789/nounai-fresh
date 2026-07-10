@@ -128,7 +128,19 @@
   .row.is-done .check { background: var(--green, #34C759); border-color: var(--green, #34C759); color: #fff; }
   .row.is-done .txt { text-decoration: line-through; color: var(--tertiary); }
   .row.is-done .txt .sub { text-decoration: none; color: var(--tertiary); }
+  .sec-head.rout { color: #AF52DE; }
   .sec-head.done { color: #34C759; }
+  #pageSwitch {
+    display: flex; gap: 4px; flex-shrink: 0;
+    width: calc(100% - 32px); max-width: 680px; margin: 8px auto 0;
+    background: rgba(120,120,128,0.12); border-radius: 10px; padding: 3px;
+  }
+  #pageSwitch button {
+    flex: 1; border: 0; font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 4px; border-radius: 8px; background: none;
+    color: var(--secondary); cursor: pointer;
+  }
+  #pageSwitch button.on { background: #fff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
   #syncBtn { position: relative; }
   #syncDot {
     position: absolute; top: 4px; right: 4px; width: 9px; height: 9px;
@@ -162,7 +174,7 @@
   }
   .scale-row { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
   .seg {
-    display: flex; gap: 4px; margin-top: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px;
     background: #F2F2F7; border-radius: 10px; padding: 3px;
   }
   .seg button {
@@ -174,6 +186,7 @@
   .seg button.on.fav  { color: var(--fav); }
   .seg button.on.none { color: var(--ink); }
   .seg button.on.cold { color: var(--cold); }
+  .seg button.on.rout { color: #AF52DE; }
   .detail-head {
     display: flex; align-items: center; justify-content: space-between; margin-top: 10px;
   }
@@ -302,6 +315,7 @@
     width: 13px; height: 13px; border-radius: 50%;
     border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
   }
+  .mx-dot.rout .pt { background: #AF52DE; }
   .mx-dot.fav  .pt { background: var(--fav); }
   .mx-dot.none .pt { background: #8E8E93; }
   .mx-dot.cold .pt { background: var(--cold); }
@@ -436,6 +450,7 @@
     <button class="add-btn" id="addBtn" aria-label="追加" disabled>＋</button>
   </div>
   <div id="filterBar" style="display:none;"></div>
+  <div id="pageSwitch"></div>
   <div id="list"></div>
   <div id="matrixView"></div>
 
@@ -479,16 +494,26 @@
 
   // ---------- バージョン ----------
   // リリースのたびに、ここと sw.js の CACHE 名をセットで上げる。
-  const APP_VERSION = '2.2.0';
+  const APP_VERSION = '2.3.0';
 
   // ---------- バケット定義 ----------
-  // 上から順（index小=優先度高）。内部キーは固定（表示名は変えてOK）。
-  const BUCKETS = ['fav', 'none', 'cold'];
+  // 2×2セグメントの並び(左上,右上,左下,右下)。内部キーは固定（表示名は変えてOK）。
+  const BUCKETS = ['none', 'fav', 'cold', 'rout'];
   const META = {
+    none: { label: 'ラベルなし', dot: '·',  cls: 'none' },
     fav:  { label: 'お気に入り', dot: '★', cls: 'fav'  },
-    none: { label: 'ラベルなし', dot: '·', cls: 'none' },
     cold: { label: 'コールド',   dot: '❄', cls: 'cold' },
+    rout: { label: 'ルーティン', dot: '🔁', cls: 'rout' },
   };
+  // 左右2ページ構成: 左=整理前(none/cold)、右=定常運転(fav/rout)
+  const PAGES = [
+    { name: '整理前',   buckets: ['none', 'cold'] },
+    { name: '定常運転', buckets: ['fav',  'rout'] },
+  ];
+  // 行スワイプ: 右=定常運転側へ、左=整理前へ
+  const RIGHT_OF = { none: 'fav', cold: 'rout' };
+  const LEFT_OF  = { fav: 'none', rout: 'cold' };
+  const BUCKET_COLOR = { fav: '#FF9F0A', none: '#8E8E93', cold: '#32ADE6', rout: '#AF52DE' };
 
   // ---------- IndexedDB ----------
   const DB_NAME = 'yaridoki-db';   // 固定。変えると保存データが読めなくなる。
@@ -521,11 +546,15 @@
     for (const it of all) {
       if (it.deleted && (it.updatedAt || 0) < cutoff) await hardDel(it.id);
     }
-    // 前日以前に完了したタスクは自動で片付ける（ソフト削除→同期にも反映）
+    // 前日以前に完了したタスク: 🔁ルーティンは未完了に戻し、それ以外は片付ける（ソフト削除→同期にも反映）
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     for (const it of all) {
       if (!it.deleted && it.done && (it.doneAt || 0) < todayStart.getTime()) {
-        it.deleted = true; it.updatedAt = now();
+        if (it.bucket === 'rout') {
+          it.done = false; it.doneAt = null; it.updatedAt = now();
+        } else {
+          it.deleted = true; it.updatedAt = now();
+        }
         await put(it);
       }
     }
@@ -612,19 +641,34 @@
     render();
   });
 
+  let page = 0; // 0=整理前, 1=定常運転
+  const pageSwitchEl = $('#pageSwitch');
+  function renderPageSwitch() {
+    pageSwitchEl.innerHTML = '';
+    PAGES.forEach((p, i) => {
+      const n = p.buckets.reduce((sum, b) => sum + inBucket(b).length, 0);
+      const btn = document.createElement('button');
+      btn.className = i === page ? 'on' : '';
+      btn.textContent = p.name + (n ? ` (${n})` : '');
+      btn.addEventListener('click', () => { page = i; editingId = null; render(); });
+      pageSwitchEl.appendChild(btn);
+    });
+  }
+
   function render() {
     viewBtn.innerHTML = view === 'list' ? ICON_MATRIX : ICON_LIST;
     listEl.style.display = view === 'list' ? '' : 'none';
     matrixEl.classList.toggle('active', view === 'matrix');
     $('.addbar').style.display = view === 'list' ? '' : 'none';
+    pageSwitchEl.style.display = view === 'list' ? '' : 'none';
     renderFilterBar();
     renderSyncDot();
-    if (view === 'list') renderList(); else renderMatrix();
+    if (view === 'list') { renderPageSwitch(); renderList(); } else renderMatrix();
   }
 
   function renderList() {
     listEl.innerHTML = '';
-    for (const b of BUCKETS) {
+    for (const b of PAGES[page].buckets) {
       const m = META[b];
       const items = inBucket(b);
       const sec = document.createElement('div');
@@ -923,21 +967,22 @@
   }
 
   // ---------- swipe (Pointer Events) ----------
+  // 右スワイプ=定常運転側へ(none→fav, cold→rout)、左スワイプ=整理前へ(fav→none, rout→cold)
   function attachSwipe(row, bg, it) {
     let startX = 0, startY = 0, dx = 0, dir = 0, decided = false, dragging = false, moved = false;
     const FIRE = 64;
-    const idx = BUCKETS.indexOf(it.bucket);
-
-    const canUp = idx > 0;       // 右=上げる
-    const canDown = idx < BUCKETS.length - 1; // 左=下げる
+    const rightTarget = RIGHT_OF[it.bucket] || null;
+    const leftTarget = LEFT_OF[it.bucket] || null;
 
     function setBg(d) {
-      if (d > 0) {
-        bg.className = 'row-bg up' + (canUp ? '' : ' capped');
-        bg.textContent = canUp ? '⬆ 上げる' : '最上です';
+      const target = d > 0 ? rightTarget : leftTarget;
+      bg.className = 'row-bg ' + (d > 0 ? 'up' : 'down') + (target ? '' : ' capped');
+      if (target) {
+        bg.textContent = META[target].dot + ' ' + META[target].label + 'へ';
+        bg.style.background = BUCKET_COLOR[target];
       } else {
-        bg.className = 'row-bg down' + (canDown ? '' : ' capped');
-        bg.textContent = canDown ? '下げる ⬇' : '最下です';
+        bg.textContent = d > 0 ? '右端です' : '左端です';
+        bg.style.background = '';
       }
     }
 
@@ -962,7 +1007,7 @@
       e.preventDefault();
       dx = mx;
       // 端では抵抗（ラバーバンド）
-      if ((dx > 0 && !canUp) || (dx < 0 && !canDown)) dx *= 0.28;
+      if ((dx > 0 && !rightTarget) || (dx < 0 && !leftTarget)) dx *= 0.28;
       setBg(dx);
       row.style.transform = `translateX(${dx}px)`;
     });
@@ -970,11 +1015,11 @@
       if (!dragging) return;
       dragging = false;
       row.style.transition = 'transform .22s cubic-bezier(.32,.72,0,1)';
-      const fire = (dx > FIRE && canUp) || (dx < -FIRE && canDown);
+      const fire = (dx > FIRE && rightTarget) || (dx < -FIRE && leftTarget);
       if (fire) {
-        const goUp = dx > 0;
-        row.style.transform = `translateX(${goUp ? '110%' : '-110%'})`;
-        setTimeout(() => moveTier(it, goUp ? -1 : 1), 130);
+        const goRight = dx > 0;
+        row.style.transform = `translateX(${goRight ? '110%' : '-110%'})`;
+        setTimeout(() => moveBucket(it, goRight ? rightTarget : leftTarget), 130);
       } else {
         row.style.transform = 'translateX(0)';
       }
@@ -987,11 +1032,9 @@
     row.addEventListener('pointercancel', end);
   }
 
-  async function moveTier(it, delta) {
-    const idx = BUCKETS.indexOf(it.bucket);
-    const ni = Math.max(0, Math.min(BUCKETS.length - 1, idx + delta));
-    if (ni === idx) { render(); return; }
-    it.bucket = BUCKETS[ni]; it.updatedAt = now();
+  async function moveBucket(it, target) {
+    if (!target || target === it.bucket) { render(); return; }
+    it.bucket = target; it.updatedAt = now();
     await put(it);
     markEdited();
     render();
@@ -1107,6 +1150,7 @@
     await put(it); state.items.push(it);
     markEdited();
     addInput.value = ''; refreshAddBtn();
+    page = 0; // 追加先(ラベルなし)が見えるように整理前ページへ
     render();
     addInput.focus();
   }
