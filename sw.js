@@ -4,7 +4,7 @@
 // - 取得失敗時（オフライン）はキャッシュにフォールバック
 // - アイコン等の静的アセットはキャッシュ優先
 // リリース時は index.html の APP_VERSION と必ずセットで CACHE を上げること。
-const CACHE = 'yaridoki-v2-1-1';
+const CACHE = 'yaridoki-v2-1-2';
 const ASSETS = [
   './',
   './index.html',
